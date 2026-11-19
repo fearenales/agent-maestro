@@ -1,5 +1,5 @@
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar, InputState, Input, TextareaState, Textarea, CalendarState } from "gpui-base";
+import { v_flex, h_flex, Scrollbar, ScrollHandle, InputState, Input, TextareaState, Textarea, CalendarState } from "gpui-base";
 import { spaces, focused, exec, home, readTextFile, writeTextFile, run, theme, checking, openOverlay, closeOverlay, nextCommand, agents, hc, props, shared, setShared } from "herdr";
 
 // The list is a Markdown checklist anyone can edit; its header comment documents the schema.
@@ -220,8 +220,9 @@ export default class Tasks extends View {
     this.switcher = Boolean(props()?.overlay);
     if (this.switcher) {
       this.sel = 0; this.picking = false;
+      this.listScroll = ScrollHandle.new();  // keeps the selected row on screen
       this.finder = InputState.new({ placeholder: "Go to a task, or type a new one" });
-      this.finder.on("change", (_e, cx) => { this.sel = 0; cx.notify(); });
+      this.finder.on("change", (_e, cx) => { this.sel = 0; this.listScroll.scroll_to_item(0); cx.notify(); });
       this.finder.on("submit", (_e, cx) => this.pick(this.sel, cx));
       this.finder.focus();
     }
@@ -797,6 +798,13 @@ export default class Tasks extends View {
     });
   }
 
+  // Moves the selection one row and keeps it on screen.
+  moveSelection(step, count, cx) {
+    this.sel = Math.max(0, Math.min(count - 1, this.sel + step));
+    this.listScroll.scroll_to_item(this.sel);
+    cx.notify();
+  }
+
   switcherView(t) {
     const tasks = this.switchList(), title = this.finder.value().trim();
     const create = Boolean(title) && !tasks.length, count = tasks.length + (create ? 1 : 0);
@@ -820,17 +828,16 @@ export default class Tasks extends View {
     const enter = this.picking ? "Starting the agent…" : create ? "↵ create and start" : "↵ go to agent";
     return v_flex().id("switcher").w_full().bg(t.popover).text_color(t.foreground).text_size(13)
       .on_key_down((e, cx) => {
-        if (e.key === "down") this.sel = Math.min(count - 1, this.sel + 1);
-        else if (e.key === "up") this.sel = Math.max(0, this.sel - 1);
-        else return;
-        cx.stop_propagation(); cx.notify();
+        if (e.key !== "down" && e.key !== "up") return;
+        this.moveSelection(e.key === "down" ? 1 : -1, count, cx);
+        cx.stop_propagation();
       })
       .child(h_flex().h(46).flex_none().px(14).gap(10).items_center().border_b(1).border_color(t.border)
         .child(svg(ICON("search")).size(14).flex_none().text_color(t.dim))
         .child(Input.new(this.finder).h_full().flex_1().text_size(14).text_color(t.foreground)))
       // A popup is as tall as its content: the list gets its height from its rows, up to 12.
       .child(div().h(count ? Math.min(count, 12) * 34 + 8 : 44).flex_none().relative()
-        .child(v_flex().id("switcher-list").absolute().inset_0().overflow_y_scroll().py(4)
+        .child(v_flex().id("switcher-list").absolute().inset_0().overflow_y_scroll().track_scroll(this.listScroll).py(4)
           .children(tasks.map(taskLine))
           .when(create, (el) => el.child(line("sw-create", 0)
             .child(svg(ICON("plus")).size(12).flex_none().text_color(t.dim))
