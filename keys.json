@@ -1,0 +1,8 @@
+{
+  "global": {
+    "cmd-k": "mod.open:maestro-tasks",
+    "cmd-[": "maestro-agent-history.back",
+    "cmd-]": "maestro-agent-history.forward",
+    "cmd-shift-enter": "layout.toggle:side"
+  }
+}
