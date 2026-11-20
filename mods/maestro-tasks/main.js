@@ -550,8 +550,9 @@ export default class Tasks extends View {
   // An agent without a task, by its title: a click goes to it; the + makes it a task.
   otherRow(a, t) {
     const name = clean(a.title);
+    const current = focused()?.tab === a.tab;
     return h_flex().id(`other-${a.tab}`).w_full().flex_none().px(12).py(6).gap(8).items_center().border_b(1).border_color(t.border).cursor_pointer()
-      .hover((s) => s.bg(t.hover)).tooltip(`Go to ${a.space_name} · ${a.tab_name}`)
+      .when(current, (el) => el.bg(t.selected)).hover((s) => s.bg(current ? t.selected : t.hover)).tooltip(`Go to ${a.space_name} · ${a.tab_name}`)
       .on_click(() => run("tab.select", { id: a.tab }))
       .child(div().w(15).flex_none().flex().justify_center().child(this.agentStatus(t, a.status, true)))
       // Claude Code's session title names the work better than the folder-based space name.
@@ -562,12 +563,15 @@ export default class Tasks extends View {
 
   row(task, t) {
     const i = task.line, f = task.fields, open = this.ed?.key.title === task.title;
+    // The task whose agent you're in.
+    const current = Boolean(task.tab) && focused()?.tab === task.tab;
     const due = f.due ? dueLabel(f.due, t) : null;
     const people = list(f.assignees).filter((p) => p.toLowerCase() !== ME.toLowerCase()), tags = list(f.tags), links = list(f.links);
     const meta = Boolean(f.repository) || people.length + tags.length + links.length > 0;
     const kinds = linkKinds(task, t);
     return v_flex().id(`task-${i}`).w_full().flex_none().px(12).py(6).gap(5).border_b(1).border_color(t.border)
-      .when(open, (el) => el.bg(t.raised))
+      .when(current, (el) => el.bg(t.selected))
+      .when(open && !current, (el) => el.bg(t.raised))
 
       .child(h_flex().id(`head-${i}`).w_full().gap(8).items_center().cursor_pointer()
         .on_click((_e, cx) => this.openEditor(task, cx))
@@ -754,16 +758,18 @@ export default class Tasks extends View {
   // ---- task switcher (Cmd+K) ----
 
   // Open tasks: first those whose agent waits for you, then those whose agent just finished,
-  // each by when that happened, newest first; then the rest, last viewed first.
+  // each by when that happened, then those whose agent is working, latest started first,
+  // all newest first; then the rest, last viewed first.
   // A search keeps those holding every word.
   switchList() {
     const words = this.finder.value().trim().toLowerCase().split(/\s+/).filter(Boolean);
     const rank = (x) => [STATUSES.indexOf(x.status), PRIORITIES.indexOf(x.fields.priority) + 1 || 9, x.line];
-    const group = (tab) => tab?.status === "blocked" ? 0 : tab?.status === "done" ? 1 : 2;
+    const group = (tab) => ({ blocked: 0, done: 1, working: 2 })[tab?.status] ?? 3;
     return this.tasks.filter((x) => !x.done && words.every((w) => searchable(x).includes(w)))
       .map((x) => {
         const tab = x.tab ? where(x.tab)?.tab : null, g = group(tab);
-        return { x, g, when: g < 2 ? tab.changed_at ?? 0 : viewedAt(x), r: rank(x) };
+        const when = g === 2 ? tab.working_since ?? tab.changed_at ?? 0 : g < 2 ? tab.changed_at ?? 0 : viewedAt(x);
+        return { x, g, when, r: rank(x) };
       })
       .sort((a, b) => a.g - b.g || b.when - a.when || a.r[0] - b.r[0] || a.r[1] - b.r[1] || a.r[2] - b.r[2])
       .map(({ x }) => x);

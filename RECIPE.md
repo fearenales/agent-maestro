@@ -27,6 +27,7 @@ Left to right, top to bottom:
 - A task is one 13px line: checkbox, priority (`P1` red, `P2` amber, `P3` blue), title (truncated), then right-aligned: due label (`overdue 2d` red, `today` amber, `tomorrow`, a weekday, or `Dec 2`), a 22px bordered badge per link kind (a branch icon for GitHub PRs/issues, the orange Claude logo for claude.ai artifacts), and the agent badge.
 - **Agent badge** (22px bordered square): working = spinner; needs you = `!` on an amber tint; finished = filled dot; idle = hollow dot; tab closed but resumable = dotted circle; closed without a session = link icon. A task without an agent shows a `>_` start button instead.
 - Clicking a task expands it: its repository, people, tags and links as small tags, then an editor: title, status buttons, priority buttons, due date (text with shortcuts plus a calendar), repository picker, assignees / stakeholders / tags with suggestions, links, notes, and a button row: Start agent (or Unlink agent), Link focused tab, Delete, Save.
+- The task whose agent you are in is highlighted with the `selected` background (also in Other agents).
 - **Other agents** lists agents no open task links to, by their Claude Code session title, with a `+` to make a task for one.
 
 ## How it behaves
@@ -54,8 +55,8 @@ Left to right, top to bottom:
 - **Delete** asks first (Herdr's `confirm` dialog).
 - **Due date** accepts `today`, `tomorrow`, `fri`, `+3d`, `2w`, `1m`, `next week` or `YYYY-MM-DD`; impossible dates are refused.
 - **Search** matches every typed word, in any order, across title, notes, status, fields and the linked agent's space and tab; while searching, done tasks are included and folded groups open; Esc clears it.
-- **Cmd+K** opens the task switcher (the same mod as a popup at the top, 640px wide): open tasks only, ordered: agents waiting for you (newest state change first), agents that just finished, then everything else by when you last viewed it (focused its agent, picked it here, expanded it in the panel). Each row: group dot, priority, title, due, link icons, agent status. Up/Down select, Enter goes to the agent (resumes a closed one, starts one if there is none), Esc or Cmd+K closes. With no match, a "New task: <text>" row creates the task in Inbox and starts its agent.
-- **Cmd+[ / Cmd+]**: back and forward through visited agents, like a browser (100 visits, closed agents skipped, a new visit drops the forward history). The status-bar arrows do the same; their tooltip names the target.
+- **Cmd+K** opens the task switcher (the same mod as a popup at the top, 640px wide): open tasks only, ordered: agents waiting for you and agents that just finished (each by newest state change), agents that are working (latest started first), then everything else by when you last viewed it (stayed on its agent for 2 seconds or more, picked it here, or expanded it in the panel; passing through an agent does not count). Each row: group dot, priority, title, due, link icons, agent status. Up/Down select, Enter goes to the agent (resumes a closed one, starts one if there is none), Esc or Cmd+K closes. With no match, a "New task: <text>" row creates the task in Inbox and starts its agent.
+- **Cmd+[ / Cmd+]**: back and forward through visited agents, like a browser (100 visits, closed agents skipped, a new visit drops the forward history; while a step is landing, focus changes are ignored for up to 1.5 seconds). The status-bar arrows do the same; their tooltip names the target.
 - **Cmd+Shift+Enter** shows or hides the right column (Herdr's `pane.zoom` default lives on this key; it moves to the header button).
 
 ## Built from
@@ -79,7 +80,8 @@ Left to right, top to bottom:
 - Mods cannot import files from another mod's folder, which is why the switcher is the tasks mod opened as a popup.
 - A popup sizes to its content: the switcher list gets an explicit height (rows x 34px, up to 12).
 - A fixed-width block beside a resizable column blocks dragging: the 10px handle shares `main-wrap` with the terminals so the column's edge can move.
-- Don't call `setShared` from render; agent-history notes the focus in render and saves it on a 1-second timer.
+- Don't call `setShared` from render; agent-history notes the focus in render and saves views on a 500ms timer (after 2 seconds on an agent, then every 5 seconds while you stay).
+- A back/forward step redraws before the focus moves: without ignoring the focus it is leaving, that redraw records a bogus visit and the list drifts.
 - `<mod>.<command>` reaches shown copies only, so the history mod lives in the always-visible status bar.
 - Settings at the top of `maestro-tasks/main.js`: `REPOS` (default `~/workspace`), `JIRA` and `GITHUB` (empty: Jira keys and `repo#45` stay plain text), `ME` (your name, hidden from assignee tags), `AGENT` (`["claude"]`).
 - The usage figures need the status line snapshot; without it the pane header and limits stay empty and everything else works.
