@@ -340,6 +340,14 @@ export default class Tasks extends View {
     });
   }
 
+  // Goes to the task's agent, or resumes it when its tab was closed; with no agent, expands the task.
+  goToAgent(task, cx) {
+    const at = task.tab ? where(task.tab) : null;
+    if (at) { markViewed(`title:${task.title}`, `tab:${at.tab.id}`); run("tab.select", { id: at.tab.id }); return; }
+    if (task.tab && task.fields.session) { this.resume(task, cx); return; }
+    if (this.ed?.key.title !== task.title) this.openEditor(task, cx);
+  }
+
   // Makes a task for an agent that has none, linked to its tab.
   adopt(agent, cx) {
     const title = clean(agent.title) || agent.space_name;
@@ -543,7 +551,7 @@ export default class Tasks extends View {
     return h_flex().id(`chip-${i}`).size(22).flex_none().flex().items_center().justify_center().rounded(5).border_1().border_color(t.border)
       .text_size(11).text_color(at ? t.muted : t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .tooltip(at ? `Go to ${at.space.name} · ${at.tab.name}` : task.fields.session ? "Resume agent" : "Its tab was closed")
-      .on_click((_e, cx) => { cx.stop_propagation(); if (at) run("tab.select", { id: at.tab.id }); else this.resume(task, cx); })
+      .on_click((_e, cx) => { cx.stop_propagation(); this.goToAgent(task, cx); })
       .child(at ? this.agentStatus(t, at.tab.status, true) : svg(ICON(task.fields.session ? "circle-dashed" : "link")).size(12).flex_none());
   }
 
@@ -569,12 +577,23 @@ export default class Tasks extends View {
     const people = list(f.assignees).filter((p) => p.toLowerCase() !== ME.toLowerCase()), tags = list(f.tags), links = list(f.links);
     const meta = Boolean(f.repository) || people.length + tags.length + links.length > 0;
     const kinds = linkKinds(task, t);
-    return v_flex().id(`task-${i}`).w_full().flex_none().px(12).py(6).gap(5).border_b(1).border_color(t.border)
+    return v_flex().id(`task-${i}`).w_full().flex_none().relative().px(12).py(6).gap(5).border_b(1).border_color(t.border)
       .when(current, (el) => el.bg(t.selected))
       .when(open && !current, (el) => el.bg(t.raised))
+      .on_hover((hovered, cx) => {
+        if (hovered) this.hovered = i; else if (this.hovered === i) this.hovered = null;
+        cx.notify();
+      })
+      // In the left margin, on hover (and while expanded): the chevron that expands the task.
+      .when(this.hovered === i || open, (el) => el.child(div().id(`expand-${i}`).absolute().left(0).top(6).w(12).h(20)
+        .flex().items_center().justify_center().cursor_pointer().text_color(open ? t.foreground : t.dim).hover((s) => s.text_color(t.foreground))
+        .tooltip(open ? "Collapse" : "Expand")
+        .on_click((_e, cx) => { cx.stop_propagation(); this.openEditor(task, cx); })
+        .child(svg("mods/files/chevron-down.svg").size(11))))
 
+      // A click on the task goes to its agent; one without an agent expands instead.
       .child(h_flex().id(`head-${i}`).w_full().gap(8).items_center().cursor_pointer()
-        .on_click((_e, cx) => this.openEditor(task, cx))
+        .on_click((_e, cx) => this.goToAgent(task, cx))
         .child(div().id(`done-${i}`).size(15).flex_none().flex().items_center().justify_center().rounded(4).border_1().cursor_pointer()
           .border_color(task.done ? t.accent : t.input).bg(task.done ? t.accent : t.background)
           .on_click((_e, cx) => { cx.stop_propagation(); this.toggleDone(task, cx); })
