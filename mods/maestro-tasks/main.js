@@ -559,7 +559,7 @@ export default class Tasks extends View {
   otherRow(a, t) {
     const name = clean(a.title);
     const current = focused()?.tab === a.tab;
-    return h_flex().id(`other-${a.tab}`).w_full().flex_none().px(12).py(6).gap(8).items_center().border_b(1).border_color(t.border).cursor_pointer()
+    return h_flex().id(`other-${a.tab}`).w_full().flex_none().pl(24).pr(12).py(6).gap(8).items_center().border_b(1).border_color(t.border).cursor_pointer()
       .when(current, (el) => el.bg(t.selected)).hover((s) => s.bg(current ? t.selected : t.hover)).tooltip(`Go to ${a.space_name} · ${a.tab_name}`)
       .on_click(() => run("tab.select", { id: a.tab }))
       .child(div().w(15).flex_none().flex().justify_center().child(this.agentStatus(t, a.status, true)))
@@ -577,7 +577,7 @@ export default class Tasks extends View {
     const people = list(f.assignees).filter((p) => p.toLowerCase() !== ME.toLowerCase()), tags = list(f.tags), links = list(f.links);
     const meta = Boolean(f.repository) || people.length + tags.length + links.length > 0;
     const kinds = linkKinds(task, t);
-    return v_flex().id(`task-${i}`).w_full().flex_none().relative().px(12).py(6).gap(5).border_b(1).border_color(t.border)
+    return v_flex().id(`task-${i}`).w_full().flex_none().relative().pl(24).pr(12).py(6).gap(5).border_b(1).border_color(t.border)
       .when(current, (el) => el.bg(t.selected))
       .when(open && !current, (el) => el.bg(t.raised))
       .on_hover((hovered, cx) => {
@@ -585,11 +585,11 @@ export default class Tasks extends View {
         cx.notify();
       })
       // In the left margin, on hover (and while expanded): the chevron that expands the task.
-      .when(this.hovered === i || open, (el) => el.child(div().id(`expand-${i}`).absolute().left(0).top(6).w(12).h(20)
+      .when(this.hovered === i || open, (el) => el.child(div().id(`expand-${i}`).absolute().left(4).top(6).w(14).h(20)
         .flex().items_center().justify_center().cursor_pointer().text_color(open ? t.foreground : t.dim).hover((s) => s.text_color(t.foreground))
         .tooltip(open ? "Collapse" : "Expand")
         .on_click((_e, cx) => { cx.stop_propagation(); this.openEditor(task, cx); })
-        .child(svg("mods/files/chevron-down.svg").size(11))))
+        .child(svg("mods/files/chevron-down.svg").size(13))))
 
       // A click on the task goes to its agent; one without an agent expands instead.
       .child(h_flex().id(`head-${i}`).w_full().gap(8).items_center().cursor_pointer()
